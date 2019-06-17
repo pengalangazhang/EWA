@@ -29,7 +29,6 @@ public class MainActivity extends AppCompatActivity {
     private TextView text;
     private LinearLayout lView;
 
-
     private final BroadcastReceiver usbReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -42,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
                             //text.setText("permission granted for device");
                             Intent intent1 = new Intent(getApplicationContext(), Connect.class);
                             startActivity(intent1);
+
                         }
                     }
                     else {
@@ -75,5 +75,10 @@ public class MainActivity extends AppCompatActivity {
             manager.requestPermission(device, permissionIntent);
             text.setText("requesting permission");
         }
+    }
+
+    protected void onDestroy() {
+        unregisterReceiver(usbReceiver);
+        super.onDestroy();
     }
 }
