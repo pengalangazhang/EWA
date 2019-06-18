@@ -3,8 +3,6 @@ package com.example.sockettest;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
-import android.widget.EditText;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -19,10 +17,6 @@ import java.net.Socket;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "ServerThread";
-    Handler updateConversationHandler;
-    Thread serverThread = null;
-    private TextView textView;
-    private EditText editText;
     public static final int SERVER_PORT = 9000;
 
     @Override
