@@ -72,7 +72,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 try {
-                    Log.e(TAG, "Reading from server");
+                    Log.e(TAG, "Reading from client");
                     isr = new InputStreamReader(s.getInputStream());
                     bufferedReader = new BufferedReader(isr);
                     while ((message = bufferedReader.readLine()) != null) {

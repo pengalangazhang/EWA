@@ -10,6 +10,12 @@ public class PC {
 	static Socket s;
 	
 	public static void main(String[] args) {
+		try {
+			Runtime.getRuntime().exec(("C:\\Users\\pzhang\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe forward tcp:8000 tcp:9000"));
+		}
+		catch (IOException e) {
+			e.printStackTrace();
+		}
 		
 		try {
 			s = new Socket("localhost", PORT);
