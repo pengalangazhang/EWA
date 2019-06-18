@@ -11,8 +11,8 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -30,7 +30,6 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        editText = (EditText) findViewById(R.id.editText);
         Thread myThread = new Thread(new ServerThread());
         myThread.start();
     }
@@ -41,29 +40,82 @@ public class MainActivity extends AppCompatActivity {
         InputStreamReader isr;
         BufferedReader bufferedReader;
         String message;
+        PrintWriter pw;
         Handler h = new Handler();
+        String connectionStatus;
         @Override
         public void run() {
             try {
                 ss = new ServerSocket(SERVER_PORT);
-                while(true) {
-                    s = ss.accept();
-                    isr = new InputStreamReader(s.getInputStream());
-                    bufferedReader = new BufferedReader(isr);
-                    message = bufferedReader.readLine();
-                    Log.d(TAG, message + "Hello");
+                s = ss.accept();
+                pw = new PrintWriter(s.getOutputStream());
+                pw.println("Hey Client!\n");
+                pw.flush();
 
-                    h.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(getApplication(),message,Toast.LENGTH_SHORT).show();
-                        }
-                    });
-                }
+                Thread readThread = new Thread(readFromClient);
+                readThread.setPriority(Thread.MAX_PRIORITY);
+                readThread.start();
+                Log.e(TAG, "Sent");
             }
             catch (IOException e) {
                 e.printStackTrace();
             }
+
+            if ( s != null ) {
+                try {
+                    connectionStatus = "Connection successful";
+                    Log.e(TAG, connectionStatus);
+                    h.post(showConnectionStatus);
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
         }
+
+        private Runnable readFromClient = new Runnable() {
+
+            @Override
+            public void run() {
+                try {
+                    Log.e(TAG, "Reading from server");
+                    isr = new InputStreamReader(s.getInputStream());
+                    bufferedReader = new BufferedReader(isr);
+                    while ((message = bufferedReader.readLine()) != null) {
+                        Log.d("ServerActivity", message);
+                    }
+                    bufferedReader.close();
+                    closeAll();
+                    Log.e(TAG, "OUT OF WHILE");
+                }
+                catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+
+        public void closeAll() {
+            try {
+                Log.e(TAG, "Closing all");
+                pw.close();
+                s.close();
+                ss.close();
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        private Runnable showConnectionStatus = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Toast.makeText(getApplicationContext(), connectionStatus, Toast.LENGTH_SHORT).show();
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        };
     }
 }
