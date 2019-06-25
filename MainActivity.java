@@ -27,7 +27,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Thread worker = new Thread(new USBConnection(this, new Intent("USB_ACCESSORY_ATTACHED")));
+        Thread worker = new Thread(new USBConnection(this, this.getIntent());
         worker.start();
     }
 
