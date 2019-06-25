@@ -27,7 +27,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Thread worker = new Thread(new USBConnection(this, this.getIntent());
+        Thread worker = new Thread(new USBConnection(this, this.getIntent() /*new Intent("USB_ACCESSORY_ATTACHED"*/));
         worker.start();
     }
 
@@ -72,7 +72,7 @@ public class MainActivity extends AppCompatActivity {
                 if (((deviceAccessory.getVendorId() == 0x18D1) && (deviceAccessory.getProductId() == 0x2D00 || deviceAccessory.getProductId() == 0x2D01)))
                     accessoryMode = true;
                 else {
-                    //attempt to start in accessory mode
+                    //attempt to start in usb mode
                     if (deviceAccessory.getDeviceProtocol() > 0)
                         connection.controlTransfer(64, 52, 0, Integer.parseInt(accessory.getSerial()), controlBuffer, controlBuffer.length, 5000);
                         connection.controlTransfer(64, 53, 0, 0, null, 0, 5000);
@@ -80,31 +80,30 @@ public class MainActivity extends AppCompatActivity {
             }
 
 
-            //set up connection
+            /*set up connection*/
 
             //bulk interface and endpoints
-            boolean found = false;
             for (int i = 0; i < deviceAccessory.getInterfaceCount(); i++) {
                 UsbInterface infaceTemp = deviceAccessory.getInterface(i);
                 if (infaceTemp.getInterfaceClass() == UsbConstants.USB_CLASS_CDC_DATA && infaceTemp.getEndpointCount() > 0) {
                     for (int j = 0; j < infaceTemp.getEndpointCount(); j++) {
-                        UsbEndpoint epTemp = infaceTemp.getEndpoint(i);
+                        UsbEndpoint epTemp = infaceTemp.getEndpoint(j);
                         if (epTemp.getType() == UsbConstants.USB_ENDPOINT_XFER_BULK) {
                             if (epTemp.getDirection() == UsbConstants.USB_DIR_OUT)
                                 outEp = epTemp;
                             else
                                 inEp = epTemp;
                         }
-                        if (outEp != null && inEp != null) {
-                            inface = infaceTemp;
-                            found = true;
-                            break;
-                        }
-                    }//inner
-                    if (found) break;
+                    }
+                }
+                if (outEp != null && inEp != null) {
+                    inface = infaceTemp;
+                    break;
+                }
+            }
 
-                }//condition
-            }//outer
+
+
 
 
             boolean infaceClaimed = connection.claimInterface(inface, true);
