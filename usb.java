@@ -1,7 +1,10 @@
+import java.io.FileOutputStream;
+import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.IntBuffer;
+import java.util.Scanner;
 
 import org.usb4java.BufferUtils;
 import org.usb4java.ConfigDescriptor;
@@ -23,10 +26,10 @@ public class usb {
 	private final static short HIKEY_VENDORID = (short) 0x18D1;
 	private final static short ACCESSORY_PRODUCTID = (short) 0x2D01;
 	
-	private final static int STANDARD_INTERFACE = 0;
-	private final static int ADB_INTERFACE = 1;
+	private final static int INTERFACE = 0;
 	
 	private static final long TIMEOUT = 5000;
+	private static final int MAX_ANDROID_PACKET_SIZE = 16384;
 	
 	private static Context context;
 	private static Device device;
@@ -40,6 +43,7 @@ public class usb {
 	
 	public static void main(String[] args) {
 		try {
+			Scanner scan = new Scanner(System.in);
 			init();
 			DeviceDescriptor desc = new DeviceDescriptor();
 			LibUsb.getDeviceDescriptor(device, desc);		
@@ -62,6 +66,25 @@ public class usb {
 			}
 			
 			getEndPointAddress();
+			System.out.println(endpointIn + " " + endpointOut);
+			String next = scan.next();
+			PrintWriter writer = new PrintWriter("write.txt", "UTF-8");
+			//FileOutputStream out = new FileOutputStream("test.txt");
+			while (!next.equals("stop")) {
+				try {
+					//out.write(read(handle, testWrite(handle)).array());
+					byte[] toWrite = new byte[next.getBytes("UTF-8").length];
+					(read(handle, write(handle, next.getBytes("UTF-8")))).get(toWrite);
+					writer.println(new String(toWrite, "UTF-8"));
+				}
+				catch (Exception e) {
+					e.printStackTrace();
+				}
+				next = scan.next();
+			}
+			//out.close();
+			writer.close();
+			
 			LibUsb.releaseInterface(handle, 1);
 			LibUsb.close(handle);
 			LibUsb.exit(context);
@@ -71,7 +94,28 @@ public class usb {
 		}
 	}
 	
-	public static void write(DeviceHandle handle, byte[] data) {
+	public static int testWrite(DeviceHandle handle) {
+		ByteBuffer buffer = BufferUtils.allocateByteBuffer(1);	
+		int i = 0; 		
+		int total = 0;
+		while (i < 256) {
+			buffer.rewind();
+			buffer.put((byte)i);
+			IntBuffer transferred = BufferUtils.allocateIntBuffer();
+			int result = LibUsb.bulkTransfer(handle, endpointOut, buffer, transferred, TIMEOUT);
+			if ( result != LibUsb.SUCCESS ) {
+				throw new LibUsbException("Bulk Transfer failure", result);
+			}
+			i++;
+			int add = transferred.get();
+			System.out.println(add + " bytes sent to device");
+			total += add;
+		}		
+		return total;
+	}
+	
+	public static int write(DeviceHandle handle, byte[] data) {
+		if ( data.length > MAX_ANDROID_PACKET_SIZE ) return 0;
 		ByteBuffer buffer = BufferUtils.allocateByteBuffer(data.length);
 		buffer.rewind();
 		buffer.put(data);
@@ -80,7 +124,9 @@ public class usb {
 		if ( result != LibUsb.SUCCESS ) {
 			throw new LibUsbException("Bulk Transfer failure", result);
 		}
-		System.out.println(transferred.get() + " bytes sent to device");
+		int ret = transferred.get();
+		System.out.println(ret + " bytes sent to device");
+		return ret;
 	}
 	
 	public static ByteBuffer read(DeviceHandle handle, int size) {
@@ -114,8 +160,7 @@ public class usb {
 		System.out.println("USB successfully opened");
 		
 		
-		int iface = Short.compare(ACCESSORY_PRODUCTID, desc.idProduct()) == 0 ? ADB_INTERFACE : STANDARD_INTERFACE;
-		result = LibUsb.claimInterface(handle, iface);
+		result = LibUsb.claimInterface(handle, INTERFACE);
 		if ( result != LibUsb.SUCCESS ) {
 			throw new LibUsbException("Unable to claim interface", result);
 		}

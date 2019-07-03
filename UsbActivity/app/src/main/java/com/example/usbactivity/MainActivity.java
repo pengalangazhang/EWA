@@ -1,56 +1,148 @@
 package com.example.usbactivity;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.hardware.usb.UsbAccessory;
-import android.hardware.usb.UsbConstants;
-import android.hardware.usb.UsbDevice;
-import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-public class MainActivity extends AppCompatActivity{
+public class MainActivity extends AppCompatActivity implements Runnable{
+    private static final String ACTION_USB_PERMISSION = "com.android.example.USB_PERMISSION";
+    private static final String TAG = "Accessory";
 
-    private AccessoryCommunicator communicator;
+    private UsbManager manager;
+    private PendingIntent permission;
+    private FileInputStream inputStream;
+    private FileOutputStream outputStream;
+    private ParcelFileDescriptor fileDescriptor;
+    private boolean permissionRequestPending;
+
+    public MainActivity() {
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        manager = (UsbManager) getSystemService(Context.USB_SERVICE);
+        permission = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
+        IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
+        filter.addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED);
+        registerReceiver(receiver, filter);
+
         setContentView(R.layout.activity_main);
-
-        communicator = new AccessoryCommunicator(this) {
-            @Override
-            public void onReceive(byte[] payload, int length) {
-                Log.d("HOST", new String(payload, 0, length));
-            }
-
-            @Override
-            public void onConnected() {
-                Log.d("ACCESSORY", "connected");
-            }
-
-            @Override
-            public void onDisconnected() {
-                Log.d("ACCESSORY", "disconnected");
-            }
-        };
     }
 
-    protected void sendString(String string) {
-        communicator.send(string.getBytes());
+    private void openAccessory(UsbAccessory accessory) {
+        fileDescriptor = manager.openAccessory(accessory);
+        if ( fileDescriptor != null ) {
+            FileDescriptor fd = fileDescriptor.getFileDescriptor();
+            inputStream = new FileInputStream(fd);
+            outputStream = new FileOutputStream(fd);
+            Thread thread = new Thread(null, this, "AccessoryController");
+            thread.start();
+            Log.d(TAG, "accessory opened");
+        }
+        else {
+            Log.d(TAG, "accessory open failed");
+        }
+    }
+
+    public void onResume() {
+        super.onResume();
+
+        if ( inputStream != null && outputStream != null ) {
+            return;
+        }
+
+        UsbAccessory[] accessories = manager.getAccessoryList();
+        UsbAccessory accessory = ( accessories == null ? null : accessories[0] );
+        if ( accessory != null ) {
+            if ( manager.hasPermission(accessory) ) {
+                openAccessory(accessory);
+            }
+            else {
+                synchronized (receiver) {
+                    if ( permissionRequestPending ) {
+                        manager.requestPermission(accessory, permission);
+                        permissionRequestPending = true;
+                    }
+                }
+            }
+        }
+        else {
+            Log.d(TAG, "accessory is null");
+        }
+    }
+
+    public void onDestroy() {
+        super.onDestroy();
+    }
+
+    private void closeAccessory() {
+        try {
+            if ( fileDescriptor != null ) {
+                fileDescriptor.close();
+            }
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
+        finally {
+            fileDescriptor = null;
+        }
+    }
+
+    private final BroadcastReceiver receiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if ( ACTION_USB_PERMISSION.equals(action) ) {
+                synchronized (this) {
+                    UsbAccessory accessory = intent.getParcelableExtra(UsbManager.EXTRA_ACCESSORY);
+                    if ( intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false) ) {
+                        openAccessory(accessory);
+                    }
+                    else {
+                        Log.d(TAG, "permission denied for accessory");
+                    }
+                    permissionRequestPending = false;
+                }
+            }
+            else if ( UsbManager.ACTION_USB_ACCESSORY_DETACHED.equals(action) ) {
+                UsbAccessory accessory = intent.getParcelableExtra(UsbManager.EXTRA_ACCESSORY);
+                if ( accessory != null && accessory.equals(accessory) ) {
+                    closeAccessory();
+                }
+            }
+        }
+    };
+
+    @Override
+    public void run() {
+        byte[] buffer = new byte[16384];
+        int bytesRead = 0;
+
+        try {
+            while((bytesRead = inputStream.read(buffer)) > -1) {
+                outputStream.write(buffer, 0, bytesRead);
+                outputStream.flush();
+            }
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
