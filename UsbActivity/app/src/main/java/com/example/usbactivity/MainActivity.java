@@ -1,6 +1,5 @@
 package com.example.usbactivity;
 
-import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -24,18 +23,15 @@ public class MainActivity extends AppCompatActivity implements Runnable{
 
     private UsbManager manager;
     private UsbAccessory accessory;
-    private PendingIntent permission;
     private FileInputStream inputStream;
     private FileOutputStream outputStream;
     private ParcelFileDescriptor fileDescriptor;
-    private boolean permissionRequestPending;
-    
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         manager = (UsbManager) getSystemService(Context.USB_SERVICE);
-        permission = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
         IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
         filter.addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED);
         registerReceiver(receiver, filter);
@@ -107,7 +103,6 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                     else {
                         Log.d(TAG, "permission denied for accessory");
                     }
-                    permissionRequestPending = false;
                 }
             }
             else if ( UsbManager.ACTION_USB_ACCESSORY_DETACHED.equals(action) ) {
