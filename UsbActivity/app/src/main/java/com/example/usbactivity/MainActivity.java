@@ -29,10 +29,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
     private FileOutputStream outputStream;
     private ParcelFileDescriptor fileDescriptor;
     private boolean permissionRequestPending;
-
-    public MainActivity() {
-    }
-
+    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
