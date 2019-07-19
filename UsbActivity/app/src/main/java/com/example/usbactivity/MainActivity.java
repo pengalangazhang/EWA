@@ -23,6 +23,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
     private static final String TAG = "Accessory";
 
     private UsbManager manager;
+    private UsbAccessory accessory;
     private PendingIntent permission;
     private FileInputStream inputStream;
     private FileOutputStream outputStream;
@@ -48,6 +49,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
     private void openAccessory(UsbAccessory accessory) {
         fileDescriptor = manager.openAccessory(accessory);
         if ( fileDescriptor != null ) {
+            this.accessory = accessory;
             FileDescriptor fd = fileDescriptor.getFileDescriptor();
             inputStream = new FileInputStream(fd);
             outputStream = new FileOutputStream(fd);
@@ -60,34 +62,24 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         }
     }
 
-    public void onResume() {
-        super.onResume();
-
-        if ( inputStream != null && outputStream != null ) {
-            return;
-        }
-
-        UsbAccessory[] accessories = manager.getAccessoryList();
-        UsbAccessory accessory = ( accessories == null ? null : accessories[0] );
-        if ( accessory != null ) {
-            if ( manager.hasPermission(accessory) ) {
-                openAccessory(accessory);
-            }
-            else {
-                synchronized (receiver) {
-                    if ( permissionRequestPending ) {
-                        manager.requestPermission(accessory, permission);
-                        permissionRequestPending = true;
-                    }
-                }
-            }
-        }
-        else {
-            Log.d(TAG, "accessory is null");
-        }
-    }
-
     public void onDestroy() {
+        try {
+            if ( inputStream != null ) {
+                inputStream.close();
+            }
+            if ( outputStream != null ) {
+                outputStream.close();
+            }
+        }
+        catch ( IOException e ) {
+            e.printStackTrace();
+        }
+        finally {
+            inputStream = null;
+            outputStream = null;
+        }
+        closeAccessory();
+        unregisterReceiver(receiver);
         super.onDestroy();
     }
 
@@ -122,8 +114,8 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                 }
             }
             else if ( UsbManager.ACTION_USB_ACCESSORY_DETACHED.equals(action) ) {
-                UsbAccessory accessory = intent.getParcelableExtra(UsbManager.EXTRA_ACCESSORY);
-                if ( accessory != null && accessory.equals(accessory) ) {
+                UsbAccessory acc = intent.getParcelableExtra(UsbManager.EXTRA_ACCESSORY);
+                if ( acc != null && acc.equals(accessory) ) {
                     closeAccessory();
                 }
             }
@@ -133,7 +125,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
     @Override
     public void run() {
         byte[] buffer = new byte[16384];
-        int bytesRead = 0;
+        int bytesRead;
 
         try {
             while((bytesRead = inputStream.read(buffer)) > -1) {
