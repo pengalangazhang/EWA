@@ -39,6 +39,14 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         setContentView(R.layout.activity_main);
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if ( getIntent() != null && getIntent().getAction().equals(UsbManager.ACTION_USB_ACCESSORY_ATTACHED) ) {
+            openAccessory((UsbAccessory) getIntent().getParcelableExtra(UsbManager.EXTRA_ACCESSORY));
+        }
+    }
+
     private void openAccessory(UsbAccessory accessory) {
         fileDescriptor = manager.openAccessory(accessory);
         if ( fileDescriptor != null ) {
@@ -94,18 +102,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if ( ACTION_USB_PERMISSION.equals(action) ) {
-                synchronized (this) {
-                    UsbAccessory accessory = intent.getParcelableExtra(UsbManager.EXTRA_ACCESSORY);
-                    if ( intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false) ) {
-                        openAccessory(accessory);
-                    }
-                    else {
-                        Log.d(TAG, "permission denied for accessory");
-                    }
-                }
-            }
-            else if ( UsbManager.ACTION_USB_ACCESSORY_DETACHED.equals(action) ) {
+            if ( UsbManager.ACTION_USB_ACCESSORY_DETACHED.equals(action) ) {
                 UsbAccessory acc = intent.getParcelableExtra(UsbManager.EXTRA_ACCESSORY);
                 if ( acc != null && acc.equals(accessory) ) {
                     closeAccessory();
